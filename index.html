@@ -13,12 +13,677 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <!-- Link para o arquivo CSS externo -->
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- jsPDF e html2canvas (para gerar PDF) - Colocados aqui, mas poderiam ir antes do script.js no body -->
+    <!-- jsPDF e html2canvas (para gerar PDF) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <style>
+        /* --- Variáveis, Reset, Body, Container --- */
+        :root {
+            --primary-color: #5b86e5;
+            --secondary-color: #36d1dc;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --info-color: #3498db;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --grey-light: #f1f3f5;
+            --grey-medium: #adb5bd;
+            --grey-dark: #495057;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --font-primary: 'Poppins', sans-serif;
+            --font-secondary: 'Lato', sans-serif;
+            --transition-speed: 0.3s;
+            --pending-color: #e74c3c; /* Usado para despesas pendentes */
+            --paid-color: #2ecc71; /* Usado para despesas pagas */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-secondary);
+            background-color: var(--light-color);
+            color: var(--dark-color);
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Alinha no topo */
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto; /* Centraliza */
+            background: #fff;
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px var(--shadow-color);
+        }
+
+        /* --- Títulos (com ícone) --- */
+        h1, h2, h3 {
+            font-family: var(--font-primary);
+            color: var(--dark-color);
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.2em;
+            margin-bottom: 30px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        h1 .fa-wallet {
+            font-size: 0.9em;
+        }
+
+        h2 {
+            font-size: 1.6em;
+            margin-top: 40px;
+            border-bottom: 2px solid var(--grey-light);
+            padding-bottom: 10px;
+            color: var(--grey-dark);
+            font-weight: 600;
+        }
+
+        h3 {
+            font-size: 1.3em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: var(--grey-dark);
+            text-align: left; /* Alinhar à esquerda por padrão */
+        }
+
+        /* --- Resumo Geral --- */
+        .summary-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .summary-box {
+            background: #fff;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid var(--primary-color);
+            transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+        }
+
+        .summary-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12);
+        }
+
+        .summary-box h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: var(--grey-dark);
+            border-bottom: none; /* Remove borda inferior herdada */
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .summary-box p {
+            font-size: 1.8em;
+            font-weight: 700;
+            font-family: var(--font-primary);
+        }
+
+        /* Cores específicas do resumo */
+        .summary-box.income { border-left-color: var(--success-color); }
+        .summary-box.expense { border-left-color: var(--danger-color); }
+        .summary-box.balance { border-left-color: var(--primary-color); }
+        .summary-box.income p { color: var(--success-color); }
+        .summary-box.expense p { color: var(--danger-color); }
+        .summary-box.balance p { color: var(--primary-color); }
+        .summary-box.balance p.positive { color: var(--success-color); }
+        .summary-box.balance p.negative { color: var(--danger-color); }
+        .summary-box .fa-solid { font-size: 1em; } /* Ajusta tamanho ícones resumo */
+
+        /* --- Salário e Saldo Restante --- */
+        .salary-info-container {
+            background-color: var(--grey-light);
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .salary-info-container h3 {
+            margin-top: 0; /* Remove margem superior do h3 */
+            text-align: center; /* Centraliza título da seção */
+            border-bottom: 1px solid var(--grey-medium);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .salary-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap; /* Permite quebrar linha em telas pequenas */
+        }
+
+        .salary-input-group label {
+            font-weight: 600;
+            color: var(--grey-dark);
+            flex-shrink: 0; /* Evita que o label encolha */
+        }
+
+        .salary-input-group input[type="number"] {
+            flex-grow: 1; /* Ocupa espaço disponível */
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1em;
+            min-width: 120px; /* Largura mínima para não ficar muito pequeno */
+        }
+        .salary-input-group input[type="number"]:focus {
+            outline: none;
+            border-color: var(--info-color);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+        }
+
+        .btn-save-salary {
+            padding: 10px 15px;
+            background-color: var(--info-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color var(--transition-speed) ease;
+            display: inline-flex; /* Para alinhar ícone e texto */
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-save-salary:hover {
+            background-color: #2980b9; /* Tom mais escuro no hover */
+        }
+
+        .salary-display, .remaining-balance-display {
+            margin-top: 10px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        .salary-display span, .remaining-balance-display span {
+            font-weight: 700;
+            font-family: var(--font-primary);
+        }
+        #current-salary { color: var(--info-color); }
+        #remaining-balance { color: var(--warning-color); font-size: 1.3em; }
+        #remaining-balance.positive { color: var(--success-color); }
+        #remaining-balance.negative { color: var(--danger-color); }
+
+
+        /* --- Formulário --- */
+        .form-container {
+            margin-bottom: 40px;
+            padding: 30px;
+            background-color: #fff; /* Fundo branco para destacar */
+            border: 1px solid var(--grey-light);
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-container h2 {
+            text-align: left;
+            border: none; /* Remove borda herdada */
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: var(--grey-dark);
+            font-size: 0.95em;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1em;
+            font-family: var(--font-secondary); /* Usar fonte secundária nos inputs */
+            transition: border-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(91, 134, 229, 0.25); /* Sombra sutil no foco */
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            color: var(--grey-medium);
+            font-size: 0.8em;
+        }
+
+        .btn-add {
+            display: flex; /* Alinha ícone e texto */
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 15px;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1em;
+            font-weight: 600;
+            font-family: var(--font-primary);
+            cursor: pointer;
+            transition: background var(--transition-speed) ease, transform var(--transition-speed) ease;
+            margin-top: 10px; /* Espaço acima do botão */
+        }
+        .btn-add:hover {
+            background: linear-gradient(45deg, #4a75cf, #2cb7c0); /* Gradiente mais escuro */
+            transform: translateY(-2px);
+        }
+        .btn-add:active {
+            transform: translateY(0); /* Efeito de pressionar */
+        }
+
+
+        /* --- Histórico Geral (Tabela Principal) --- */
+        .history-container {
+            margin-top: 40px;
+        }
+        .history-container h2 {
+            text-align: left; /* Alinha título do histórico */
+            border: none; /* Remove borda herdada */
+            margin-bottom: 15px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto; /* Permite rolagem horizontal em telas pequenas */
+            border: 1px solid var(--grey-light);
+            border-radius: 8px;
+            box-shadow: 0 2px 5px var(--shadow-color);
+        }
+
+        #transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+        }
+
+        #transaction-table th,
+        #transaction-table td {
+            border-bottom: 1px solid var(--grey-light);
+            padding: 15px;
+            text-align: left;
+            white-space: nowrap; /* Evita quebra de linha por padrão */
+            vertical-align: middle; /* Alinha conteúdo verticalmente */
+        }
+        /* Alinhar últimas colunas (Status e Ações) ao centro */
+        #transaction-table td:last-child,
+        #transaction-table th:last-child {
+            text-align: center;
+        }
+        /* Alinhar penúltima coluna (Status) também ao centro */
+        #transaction-table th:nth-last-child(2),
+        #transaction-table td:nth-last-child(2) {
+             text-align: center;
+         }
+
+        #transaction-table th {
+            background-color: var(--grey-light);
+            font-weight: 600;
+            font-family: var(--font-primary);
+            color: var(--grey-dark);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #transaction-table tbody tr {
+            transition: background-color var(--transition-speed) ease, opacity var(--transition-speed) ease;
+        }
+        #transaction-table tbody tr:last-child td {
+            border-bottom: none; /* Remove borda da última linha */
+        }
+        #transaction-table tbody tr:hover {
+            background-color: #e9ecef; /* Fundo suave no hover */
+        }
+
+        /* Estilo para linhas pendentes */
+        #transaction-table tbody tr.row-pending {
+            opacity: 0.7;
+            font-style: italic;
+            background-color: #fff9f9; /* Leve fundo rosa */
+        }
+        #transaction-table tbody tr.row-pending:hover {
+            background-color: #fceded; /* Rosa um pouco mais forte no hover */
+        }
+
+        /* Indicador de Status (Pago/Pendente) */
+        .status-indicator {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            min-width: 70px; /* Largura mínima para consistência */
+            text-align: center;
+        }
+        .status-paid { background-color: var(--paid-color); }
+        .status-pending { background-color: var(--pending-color); }
+
+        /* Botão de alternar status */
+        .toggle-status-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1em;
+            padding: 5px; /* Área de clique */
+            margin-left: 5px; /* Espaço após o indicador */
+            vertical-align: middle;
+            transition: transform var(--transition-speed) ease, color var(--transition-speed) ease;
+            line-height: 1; /* Evita espaçamento extra */
+        }
+        .toggle-status-btn.paid { color: var(--paid-color); }
+        .toggle-status-btn.pending { color: var(--pending-color); }
+        .toggle-status-btn:hover {
+            transform: scale(1.2);
+        }
+
+        /* Cores para valores na tabela */
+        .transaction-income td:nth-child(2) { /* Coluna do valor para receitas */
+            color: var(--success-color);
+            font-weight: 700;
+        }
+        .transaction-expense td:nth-child(2) { /* Coluna do valor para despesas */
+            color: var(--danger-color);
+            font-weight: 700;
+        }
+
+        /* Botão de Excluir */
+        .btn-delete {
+            background-color: transparent;
+            color: var(--danger-color);
+            border: none;
+            padding: 5px; /* Área de clique */
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: color var(--transition-speed) ease, transform var(--transition-speed) ease;
+            line-height: 1;
+        }
+        .btn-delete:hover {
+            color: #c0392b; /* Vermelho mais escuro no hover */
+            transform: scale(1.1);
+        }
+
+
+        /* --- Seção do Relatório Mensal --- */
+        .monthly-report-section {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px dashed var(--grey-medium); /* Linha separadora */
+        }
+
+        .month-selector-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap; /* Responsividade */
+        }
+        .month-selector-group label {
+            font-weight: 600;
+            color: var(--grey-dark);
+        }
+        #month-select {
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1em;
+            min-width: 180px; /* Largura mínima */
+            flex-grow: 1; /* Ocupa espaço */
+        }
+
+        #monthly-report-container {
+            display: none; /* Começa oculto */
+            margin-top: 20px;
+            padding: 25px;
+            background-color: var(--grey-light); /* Fundo levemente diferente */
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        #monthly-report-container h3 { /* Título do relatório */
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--info-color);
+            border-bottom: none; /* Sem borda */
+        }
+        #monthly-report-container h4 { /* Subtítulo 'Detalhes...' */
+             font-family: var(--font-primary);
+             font-size: 1.1em;
+             color: var(--grey-dark);
+             margin-top: 30px;
+             margin-bottom: 10px;
+             text-align: left;
+         }
+
+
+        .report-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .report-summary div {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+        }
+
+        .report-summary div p {
+            margin: 0;
+            font-size: 0.9em;
+            color: var(--grey-dark);
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-summary div span {
+            font-size: 1.3em;
+            font-weight: 700;
+            font-family: var(--font-primary);
+        }
+        /* Cores para os spans do resumo do relatório */
+        #report-income span { color: var(--success-color); }
+        #report-expense-paid span { color: var(--danger-color); }
+        #report-expense-pending span { color: var(--warning-color); } /* Laranja para pendente */
+        #report-balance span { color: var(--primary-color); }
+        #report-balance span.positive { color: var(--success-color); }
+        #report-balance span.negative { color: var(--danger-color); }
+
+        /* Tabela do relatório */
+        #monthly-report-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            margin-top: 15px;
+            box-shadow: 0 2px 5px var(--shadow-color);
+            border-radius: 8px;
+            overflow: hidden; /* Para o border-radius funcionar nas bordas da tabela */
+        }
+        #monthly-report-table th,
+        #monthly-report-table td {
+            border-bottom: 1px solid var(--grey-light);
+            padding: 12px 15px; /* Padding ligeiramente menor */
+            text-align: left;
+            vertical-align: middle;
+            font-size: 0.95em;
+        }
+        #monthly-report-table th {
+            background-color: #e9ecef; /* Fundo diferente para cabeçalho */
+            font-weight: 600;
+        }
+        #monthly-report-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        /* Cor do valor na tabela do relatório */
+        #monthly-report-table td:last-child {
+            font-weight: bold; /* Valor em negrito */
+        }
+
+
+        /* Botão de Download PDF */
+        #download-pdf-btn {
+            /* display: block; é definido via JS, começa como none */
+            width: fit-content; /* Ajusta largura ao conteúdo */
+            margin: 25px auto 0; /* Centraliza e adiciona espaço acima */
+            padding: 10px 20px;
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color var(--transition-speed) ease, transform var(--transition-speed) ease;
+            display: none; /* Começa oculto por padrão */
+        }
+        #download-pdf-btn:hover {
+            background-color: #27ae60; /* Verde mais escuro */
+            transform: translateY(-2px);
+        }
+        #download-pdf-btn i {
+            margin-right: 8px; /* Espaço entre ícone e texto */
+        }
+
+        /* --- Animações --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        .new-item {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .removing {
+            animation: fadeOut 0.4s ease-in forwards;
+        }
+
+        /* --- Media Queries (Responsividade) --- */
+        @media (max-width: 768px) {
+            body { padding: 15px; }
+            .container { padding: 20px; }
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; margin-top: 30px; }
+            h3 { font-size: 1.2em; }
+
+            /* Ajustes Resumo Geral */
+            .summary-container { grid-template-columns: 1fr; gap: 15px; }
+            .summary-box { padding: 20px; }
+            .summary-box p { font-size: 1.6em; }
+
+            /* Ajustes Seção Salário */
+            .salary-info-container { padding: 20px; }
+            .salary-input-group { flex-direction: column; align-items: stretch; }
+            .salary-input-group input { width: 100%; }
+            .btn-save-salary { width: 100%; justify-content: center; }
+
+            /* Ajustes Tabela Principal */
+            #transaction-table th,
+            #transaction-table td { padding: 12px 8px; } /* Menos padding horizontal */
+
+            /* Ajustes Relatório Mensal */
+            .month-selector-group { flex-direction: column; align-items: stretch; }
+            .report-summary { grid-template-columns: 1fr 1fr; } /* 2 colunas no resumo */
+            #monthly-report-table th,
+            #monthly-report-table td { padding: 10px 8px; font-size: 0.9em; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+            h1 { font-size: 1.6em; flex-direction: column; gap: 5px;} /* Título empilhado */
+            h2 { font-size: 1.2em; }
+            h3 { font-size: 1.1em; }
+
+            /* Formulário */
+            .form-container { padding: 20px; }
+            .btn-add { font-size: 1em; padding: 10px 12px; }
+
+            /* Ajustes Tabela Principal */
+            #transaction-table th,
+            #transaction-table td {
+                white-space: normal; /* Permite quebra de linha nas células */
+                font-size: 0.9em; /* Fonte menor */
+                padding: 10px 5px; /* Menos padding */
+            }
+            .status-indicator { padding: 2px 5px; font-size: 0.7em; min-width: 60px;}
+            .toggle-status-btn { font-size: 1em; margin-left: 2px;}
+            .btn-delete { font-size: 1em; padding: 3px; }
+
+            /* Ajustes Relatório Mensal */
+            .report-summary { grid-template-columns: 1fr; } /* 1 coluna no resumo */
+             #monthly-report-container { padding: 15px; }
+            #monthly-report-table th,
+            #monthly-report-table td {
+                white-space: normal; /* Permite quebra de linha */
+                font-size: 0.85em;
+                padding: 8px 5px;
+            }
+             #download-pdf-btn { font-size: 0.9em; padding: 8px 15px;}
+        }
+    </style>
 
 </head>
 <body>
@@ -169,8 +834,649 @@
 
     </div><!-- Fim .container -->
 
-    <!-- Link para o arquivo JavaScript externo (IMPORTANTE: no final do body) -->
-    <script src="script.js"></script>
+    <script>
+        // --- Seletores DOM ---
+        const balanceEl = document.getElementById('balance');
+        const totalIncomeEl = document.getElementById('total-income');
+        const totalExpenseEl = document.getElementById('total-expense');
+        const transactionListEl = document.getElementById('transaction-list');
+        const form = document.getElementById('transaction-form');
+        const descriptionInput = document.getElementById('description');
+        const amountInput = document.getElementById('amount');
+        const typeInput = document.getElementById('type');
+        const dateInput = document.getElementById('date');
+        const categoryInput = document.getElementById('category');
+        const monthlySalaryInputEl = document.getElementById('monthly-salary-input');
+        const saveSalaryBtnEl = document.getElementById('save-salary-btn');
+        const currentSalaryEl = document.getElementById('current-salary');
+        const remainingBalanceEl = document.getElementById('remaining-balance');
+
+        // Novos seletores para relatório
+        const monthSelectEl = document.getElementById('month-select');
+        const monthlyReportContainerEl = document.getElementById('monthly-report-container');
+        const reportMonthYearEl = document.getElementById('report-month-year');
+        const reportIncomeEl = document.querySelector('#report-income span');
+        const reportExpensePaidEl = document.querySelector('#report-expense-paid span');
+        const reportExpensePendingEl = document.querySelector('#report-expense-pending span');
+        const reportBalanceEl = document.querySelector('#report-balance span');
+        const monthlyReportListEl = document.getElementById('monthly-report-list');
+        const downloadPdfBtnEl = document.getElementById('download-pdf-btn');
+
+        // --- Carregar Dados ---
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let monthlySalary = parseFloat(localStorage.getItem('monthlySalary')) || 0;
+
+        // --- Funções Utilitárias ---
+        function formatCurrency(value) {
+            if (typeof value !== 'number' || isNaN(value)) {
+                value = 0;
+            }
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function generateID() {
+            return '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Função para formatar data YYYY-MM-DD para DD/MM/YYYY
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+             try {
+                // Cria a data como UTC para evitar problemas de fuso horário na formatação
+                const dateObj = new Date(dateString + 'T00:00:00Z');
+                if (!isNaN(dateObj.getTime())) {
+                    return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                }
+            } catch (e) {
+                console.error("Erro ao formatar data:", dateString, e);
+            }
+            return '-'; // Retorna '-' se a data for inválida
+        }
+
+        // --- Funções de Atualização de UI (Principais) ---
+
+        // Adiciona uma transação ao DOM (tabela principal)
+        function addTransactionDOM(transaction, animate = false) {
+            // Garante que toda transação tenha um status (default 'paid')
+            if (!transaction.status) {
+                transaction.status = 'paid';
+            }
+
+            const { id, description, amount, type, date, category, status } = transaction;
+            const amountAbs = Math.abs(amount); // Valor absoluto para exibição
+            const itemClass = type === 'receita' ? 'transaction-income' : 'transaction-expense';
+
+            const tr = document.createElement('tr');
+            tr.classList.add(itemClass);
+            // Adiciona classe especial se for despesa pendente
+            if (type === 'despesa' && status === 'pending') {
+                tr.classList.add('row-pending');
+            }
+            tr.setAttribute('data-id', id);
+
+            let formattedDate = formatDate(date);
+            let statusCellContent = '';
+
+            // Lógica para célula de Status (só relevante para despesas)
+            if (type === 'despesa') {
+                const isPaid = status === 'paid';
+                const statusText = isPaid ? 'Pago' : 'Pendente';
+                const statusClass = isPaid ? 'status-paid' : 'status-pending';
+                const toggleButtonClass = isPaid ? 'paid' : 'pending';
+                const toggleButtonIcon = isPaid ? 'fa-toggle-on' : 'fa-toggle-off';
+                const toggleButtonTitle = isPaid ? 'Marcar como Pendente' : 'Marcar como Pago';
+
+                statusCellContent = `
+                    <span class="status-indicator ${statusClass}">${statusText}</span>
+                    <button class="toggle-status-btn ${toggleButtonClass}" onclick="toggleStatus('${id}')" title="${toggleButtonTitle}">
+                        <i class="fas ${toggleButtonIcon}"></i>
+                    </button>
+                `;
+            } else {
+                // Receitas são sempre consideradas 'OK' (ou 'Pagas')
+                statusCellContent = `<span class="status-indicator status-paid">OK</span>`;
+            }
+
+            // Conteúdo da linha da tabela
+            tr.innerHTML = `
+                <td>${description}</td>
+                <td>${formatCurrency(amountAbs)}</td>
+                <td>${type === 'receita' ? 'Receita' : 'Despesa'}</td>
+                <td>${formattedDate}</td>
+                <td>${category || '-'}</td>
+                <td>${statusCellContent}</td>
+                <td>
+                    <button class="btn-delete" onclick="removeTransaction('${id}')" title="Excluir transação">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            `;
+
+            // Animação opcional para novas entradas
+            if (animate) {
+                tr.classList.add('new-item');
+                // Remove a classe de animação após um tempo para permitir reanimação
+                setTimeout(() => tr.classList.remove('new-item'), 500);
+            }
+
+            transactionListEl.prepend(tr); // Adiciona no início da tabela
+        }
+
+        // Atualiza os cards de resumo (Receita Total, Despesa Paga, Saldo Geral)
+        function updateSummary() {
+            // Considera apenas transações pagas para o resumo principal
+            const paidTransactions = transactions.filter(t => t.status === 'paid');
+
+            const income = paidTransactions
+                .filter(t => t.type === 'receita')
+                .reduce((acc, item) => acc + item.amount, 0);
+
+            const expensePaid = paidTransactions
+                .filter(t => t.type === 'despesa') // Valores de despesa já são negativos
+                .reduce((acc, item) => acc + item.amount, 0);
+
+            const total = income + expensePaid; // Soma receita (+) com despesa paga (-)
+
+            balanceEl.innerText = formatCurrency(total);
+            totalIncomeEl.innerText = formatCurrency(income);
+            totalExpenseEl.innerText = formatCurrency(Math.abs(expensePaid)); // Exibe despesa como positiva
+
+            // Adiciona classes para estilização do saldo (positivo/negativo)
+            balanceEl.classList.toggle('positive', total >= 0);
+            balanceEl.classList.toggle('negative', total < 0);
+
+            updateRemainingBalance(); // Atualiza saldo restante sempre que o resumo muda
+        }
+
+        // Atualiza a exibição do salário definido
+        function updateSalaryDisplay() {
+            if (monthlySalary > 0) {
+                monthlySalaryInputEl.value = monthlySalary; // Preenche o input
+                currentSalaryEl.textContent = formatCurrency(monthlySalary);
+            } else {
+                monthlySalaryInputEl.value = ''; // Limpa input se não houver salário
+                currentSalaryEl.textContent = 'Não definido';
+            }
+        }
+
+        // Atualiza o cálculo e exibição do "Saldo Restante" (Salário - Despesas Pagas do Mês Atual)
+        function updateRemainingBalance() {
+            if (monthlySalary <= 0) {
+                remainingBalanceEl.textContent = 'Defina o salário';
+                remainingBalanceEl.className = 'remaining-balance-display'; // Reseta classes
+                return;
+            }
+
+            const now = new Date();
+            const currentMonth = now.getMonth(); // 0-11
+            const currentYear = now.getFullYear();
+
+            // Filtra despesas PAGAS do MÊS e ANO ATUAIS
+            const currentMonthExpensesPaid = transactions.filter(t => {
+                if (t.type === 'despesa' && t.status === 'paid' && t.date) {
+                    try {
+                        // Usa UTC para consistência
+                        const transactionDate = new Date(t.date + 'T00:00:00Z');
+                        return transactionDate.getUTCMonth() === currentMonth && transactionDate.getUTCFullYear() === currentYear;
+                    } catch(e) {
+                         console.error("Erro ao processar data em updateRemainingBalance:", t.date, e);
+                        return false; // Ignora transação com data inválida
+                    }
+                }
+                return false;
+            }).reduce((sum, t) => sum + t.amount, 0); // Soma (valores já são negativos)
+
+            const remaining = monthlySalary + currentMonthExpensesPaid; // Soma salário (+) com despesas (-)
+
+            remainingBalanceEl.textContent = formatCurrency(remaining);
+            remainingBalanceEl.className = 'remaining-balance-display'; // Reseta classes
+            remainingBalanceEl.classList.add(remaining >= 0 ? 'positive' : 'negative');
+        }
+
+
+        // --- Funções de Manipulação de Dados ---
+
+        // Adiciona uma nova transação (chamada pelo submit do form)
+        function addTransaction(e) {
+            e.preventDefault(); // Impede recarregamento da página
+
+            // Validação básica dos campos
+            if (!descriptionInput.value.trim() || !amountInput.value.trim() || !dateInput.value || !typeInput.value) {
+                alert('Por favor, preencha Descrição, Valor, Tipo e Data.');
+                return;
+            }
+
+            const amountValue = parseFloat(amountInput.value);
+            const typeValue = typeInput.value;
+
+            // Validação do sinal do valor vs tipo
+            if ((typeValue === 'receita' && amountValue <= 0) || (typeValue === 'despesa' && amountValue >= 0)) {
+                alert(`Valor inválido para o tipo "${typeValue === 'receita' ? 'Receita' : 'Despesa'}".\nReceitas devem ser positivas.\nDespesas devem ser negativas.`);
+                amountInput.focus();
+                return;
+            }
+            // Validação da data
+             try {
+                if (isNaN(new Date(dateInput.value + 'T00:00:00Z').getTime())) {
+                     throw new Error("Data inválida");
+                 }
+            } catch(e){
+                 alert('Data inválida. Por favor, selecione uma data válida.');
+                 dateInput.focus();
+                 return;
+            }
+
+
+            const transaction = {
+                id: generateID(),
+                description: descriptionInput.value.trim(),
+                amount: amountValue,
+                type: typeValue,
+                date: dateInput.value, // Formato YYYY-MM-DD
+                category: categoryInput.value.trim() || '', // Categoria opcional
+                status: 'paid' // Novas transações entram como 'paid' por padrão
+            };
+
+            // Se for despesa, o status inicial é 'paid', mas pode ser alterado depois
+            // Se for receita, status é irrelevante para a lógica atual, mas mantemos 'paid'
+
+            transactions.push(transaction);
+            sortTransactions(); // Reordena array com a nova transação
+            addTransactionDOM(transaction, true); // Adiciona ao DOM com animação
+            updateSummary(); // Atualiza os resumos
+            updateLocalStorage(); // Salva no localStorage
+            populateMonthSelector(); // Atualiza as opções do seletor de mês
+            displayMonthlyReportIfVisible(); // Atualiza relatório se ele estiver visível e for do mês adicionado
+
+            form.reset(); // Limpa o formulário
+            // Reseta placeholder do valor
+            amountInput.placeholder = 'Ex: 1500 (receita), -50.99 (despesa)';
+            descriptionInput.focus(); // Foco no campo descrição para próxima entrada
+        }
+
+        // Alterna o status de uma DESPESA entre 'paid' e 'pending'
+        function toggleStatus(id) {
+            const transactionIndex = transactions.findIndex(t => t.id === id);
+
+            if (transactionIndex > -1 && transactions[transactionIndex].type === 'despesa') {
+                const currentStatus = transactions[transactionIndex].status;
+                transactions[transactionIndex].status = (currentStatus === 'paid' ? 'pending' : 'paid');
+
+                updateLocalStorage();
+                init(); // Recarrega tudo para refletir a mudança (simples, mas pode ser otimizado)
+                populateMonthSelector(); // Garante que o seletor esteja atualizado
+                displayMonthlyReportIfVisible(); // Atualiza o relatório se ele estiver visível
+            } else {
+                console.warn("Tentativa de alterar status de receita ou ID não encontrado:", id);
+            }
+        }
+
+        // Remove uma transação
+        function removeTransaction(id) {
+            const transactionElement = document.querySelector(`tr[data-id="${id}"]`);
+
+            if (transactionElement && confirm('Tem certeza que deseja excluir esta transação?')) {
+                transactionElement.classList.add('removing'); // Adiciona classe para animação de saída
+
+                // Aguarda a animação terminar antes de remover do array e localStorage
+                setTimeout(() => {
+                    transactions = transactions.filter(transaction => transaction.id !== id);
+                    updateLocalStorage();
+                    // transactionElement.remove(); // Removido pelo init() abaixo
+                    init(); // Recarrega tudo após remoção (mais simples)
+                    populateMonthSelector(); // Atualiza seletor de mês
+                    displayMonthlyReportIfVisible(); // Atualiza relatório se visível
+
+                }, 400); // Tempo da animação fadeOut
+            }
+        }
+
+        // Salva o valor do salário mensal no localStorage
+        function saveSalary() {
+            const salaryValue = parseFloat(monthlySalaryInputEl.value);
+
+            if (isNaN(salaryValue) || salaryValue < 0) {
+                alert('Por favor, insira um valor de salário válido (número positivo).');
+                // Restaura valor anterior ou limpa se inválido
+                monthlySalaryInputEl.value = monthlySalary > 0 ? monthlySalary : '';
+                monthlySalaryInputEl.focus();
+                return;
+            }
+
+            monthlySalary = salaryValue;
+            localStorage.setItem('monthlySalary', monthlySalary.toString());
+            updateSalaryDisplay(); // Atualiza exibição do salário
+            updateRemainingBalance(); // Recalcula saldo restante
+            alert('Salário mensal salvo com sucesso!');
+        }
+
+        // Salva o array de transações no localStorage
+        function updateLocalStorage() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
+
+        // Ordena as transações por data (mais recentes primeiro)
+        function sortTransactions() {
+            transactions.sort((a, b) => {
+                // Trata casos onde a data pode ser nula ou inválida brevemente
+                const dateA = a.date ? new Date(a.date + 'T00:00:00Z') : new Date(0);
+                const dateB = b.date ? new Date(b.date + 'T00:00:00Z') : new Date(0);
+                return dateB - dateA; // Ordena decrescente (mais recente primeiro)
+            });
+        }
+
+        // --- Funções do Relatório Mensal ---
+
+        // Popula o <select> com os meses/anos disponíveis baseados nas transações
+        function populateMonthSelector() {
+            const availableMonths = new Set(); // Usar Set para evitar duplicatas
+
+            transactions.forEach(t => {
+                if (t.date) {
+                    try {
+                        // Extrai 'YYYY-MM' da data
+                         const yearMonth = t.date.substring(0, 7);
+                         // Validação simples do formato
+                         if (yearMonth.match(/^\d{4}-\d{2}$/)) {
+                            availableMonths.add(yearMonth);
+                         }
+                    } catch (e) {
+                        console.error("Erro ao processar data em populateMonthSelector:", t.date, e);
+                    }
+                }
+            });
+
+            // Ordena os meses (mais recente primeiro)
+            const sortedMonths = Array.from(availableMonths).sort().reverse();
+
+            // Guarda a opção selecionada antes de limpar
+            const previousSelection = monthSelectEl.value;
+
+            // Limpa opções existentes (exceto a primeira "-- Escolha...")
+            while (monthSelectEl.options.length > 1) {
+                monthSelectEl.remove(1);
+            }
+
+            // Adiciona as novas opções formatadas
+            const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+            sortedMonths.forEach(ym => { // ym = 'YYYY-MM'
+                const option = document.createElement('option');
+                option.value = ym;
+                // Formata para "Mês Ano" (ex: Julho 2024)
+                const [year, month] = ym.split('-');
+                // Usa um dia no meio do mês (15) para evitar problemas de fuso na formatação do mês/ano
+                option.textContent = monthFormatter.format(new Date(Date.UTC(year, month - 1, 15)));
+                monthSelectEl.appendChild(option);
+            });
+
+             // Restaura seleção anterior se ainda existir na lista
+             if (sortedMonths.includes(previousSelection)) {
+                 monthSelectEl.value = previousSelection;
+             } else {
+                  monthSelectEl.value = ""; // Reseta se o mês selecionado não existe mais
+                  monthlyReportContainerEl.style.display = 'none'; // Esconde relatório
+                  downloadPdfBtnEl.style.display = 'none'; // Esconde botão PDF
+             }
+        }
+
+        // Exibe o relatório detalhado para o mês/ano selecionado no <select>
+        function displayMonthlyReport() {
+            const selectedMonthYear = monthSelectEl.value; // Formato 'YYYY-MM'
+
+            if (!selectedMonthYear) {
+                monthlyReportContainerEl.style.display = 'none'; // Oculta container
+                downloadPdfBtnEl.style.display = 'none'; // Oculta botão PDF
+                return;
+            }
+
+            const [year, month] = selectedMonthYear.split('-').map(Number); // Converte para números
+            const monthIndex = month - 1; // Mês no JS é 0-indexado (0 = Janeiro, 11 = Dezembro)
+
+            // 1. Filtrar transações do mês/ano selecionado
+            const monthlyTransactions = transactions.filter(t => {
+                if (t.date) {
+                    try {
+                        const transactionDate = new Date(t.date + 'T00:00:00Z'); // Usar UTC
+                        return transactionDate.getUTCFullYear() === year && transactionDate.getUTCMonth() === monthIndex;
+                    } catch (e) {
+                        console.error("Erro ao filtrar data em displayMonthlyReport:", t.date, e);
+                        return false;
+                    }
+                }
+                return false;
+            });
+
+             // Ordena transações do mês por data (mais recente primeiro) para a tabela do relatório
+             monthlyTransactions.sort((a, b) => {
+                 const dateA = a.date ? new Date(a.date + 'T00:00:00Z') : new Date(0);
+                 const dateB = b.date ? new Date(b.date + 'T00:00:00Z') : new Date(0);
+                 return dateB - dateA;
+             });
+
+
+            // 2. Calcular totais do mês selecionado
+            let monthIncome = 0;
+            let monthExpensePaid = 0;
+            let monthExpensePending = 0;
+
+            monthlyTransactions.forEach(t => {
+                if (t.type === 'receita') {
+                    monthIncome += t.amount;
+                } else if (t.type === 'despesa') {
+                    if (t.status === 'paid') {
+                        monthExpensePaid += t.amount; // Valor já é negativo
+                    } else { // status === 'pending'
+                        monthExpensePending += t.amount; // Valor já é negativo
+                    }
+                }
+            });
+
+            // Balanço do mês = Receitas - Despesas PAGAS
+            const monthBalance = monthIncome + monthExpensePaid;
+
+            // 3. Atualizar UI do Resumo do Relatório
+            const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+            reportMonthYearEl.textContent = monthFormatter.format(new Date(Date.UTC(year, monthIndex, 15)));
+
+            reportIncomeEl.textContent = formatCurrency(monthIncome);
+            reportExpensePaidEl.textContent = formatCurrency(Math.abs(monthExpensePaid));
+            reportExpensePendingEl.textContent = formatCurrency(Math.abs(monthExpensePending));
+            reportBalanceEl.textContent = formatCurrency(monthBalance);
+            // Atualiza classe do balanço (positivo/negativo)
+            reportBalanceEl.className = ''; // Limpa classes anteriores
+            reportBalanceEl.classList.add(monthBalance >= 0 ? 'positive' : 'negative');
+
+            // 4. Preencher a Tabela Detalhada do Relatório
+            monthlyReportListEl.innerHTML = ''; // Limpa tabela anterior
+            if (monthlyTransactions.length === 0) {
+                // Mensagem se não houver transações
+                monthlyReportListEl.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; font-style: italic; color: var(--grey-medium);">Nenhuma transação encontrada para este mês.</td></tr>';
+            } else {
+                monthlyTransactions.forEach(t => {
+                    const tr = document.createElement('tr');
+                    const statusText = t.type === 'receita' ? 'OK' : (t.status === 'paid' ? 'Pago' : 'Pendente');
+                    const statusClass = t.type === 'receita' ? 'status-paid' : (t.status === 'paid' ? 'status-paid' : 'status-pending');
+
+                    tr.innerHTML = `
+                        <td>${formatDate(t.date)}</td>
+                        <td>${t.description}</td>
+                        <td>${t.category || '-'}</td>
+                        <td>${t.type === 'receita' ? 'Receita' : 'Despesa'}</td>
+                        <td><span class="status-indicator ${statusClass}" style="font-size: 0.8em;">${statusText}</span></td>
+                        <td style="color: ${t.amount >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                            ${formatCurrency(t.amount)}
+                        </td>
+                    `;
+                    monthlyReportListEl.appendChild(tr);
+                });
+            }
+
+            // 5. Exibir o container do relatório e o botão de download
+            monthlyReportContainerEl.style.display = 'block';
+            downloadPdfBtnEl.style.display = 'block'; // Mostra o botão PDF
+        }
+
+        // Função auxiliar para atualizar o relatório apenas se ele estiver visível
+        function displayMonthlyReportIfVisible() {
+             if (monthlyReportContainerEl.style.display === 'block' && monthSelectEl.value) {
+                 displayMonthlyReport();
+             }
+        }
+
+
+        // --- Função de Geração de PDF ---
+
+        // Função para baixar o conteúdo do relatório mensal como PDF
+        function downloadPDF() {
+            console.log("Iniciando downloadPDF...");
+
+            // Verifica se as bibliotecas jsPDF e html2canvas estão carregadas globalmente
+            if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+                console.error("Erro: Bibliotecas jsPDF ou html2canvas não carregadas.");
+                alert("Erro: Bibliotecas necessárias para gerar PDF não foram carregadas. Tente recarregar a página.");
+                return;
+            }
+            const { jsPDF } = window.jspdf; // Pega a classe jsPDF do objeto global
+            console.log("Bibliotecas verificadas.");
+
+            const reportElement = document.getElementById('monthly-report-container');
+             if (!reportElement) {
+                 console.error("Erro: Elemento 'monthly-report-container' não encontrado.");
+                 alert("Erro interno: Não foi possível encontrar o container do relatório para gerar o PDF.");
+                 return;
+             }
+
+            // Esconde temporariamente o botão de download para não aparecer no PDF
+            const originalButtonStyle = downloadPdfBtnEl.style.display;
+            downloadPdfBtnEl.style.display = 'none';
+            console.log("Botão de download oculto. Iniciando html2canvas...");
+
+            // Usa html2canvas para capturar o elemento como uma imagem (canvas)
+            html2canvas(reportElement, {
+                scale: 2, // Aumenta a escala para melhor resolução no PDF
+                useCORS: true, // Permite carregar imagens de outras origens (se houver)
+                logging: true // Habilita logs do html2canvas no console para debug
+            }).then(canvas => {
+                console.log("html2canvas concluído. Canvas gerado.");
+                try {
+                    console.log("Convertendo canvas para dataURL...");
+                    const imgData = canvas.toDataURL('image/png'); // Converte canvas para imagem PNG base64
+                    console.log("DataURL gerada.");
+
+                    console.log("Criando instância jsPDF (A4, portrait, mm)...");
+                    const pdf = new jsPDF({
+                        orientation: 'portrait', // 'p' ou 'portrait'
+                        unit: 'mm',             // 'mm', 'cm', 'in', 'pt', 'px'
+                        format: 'a4'            // 'a3', 'a4', 'a5', 'letter', 'legal'
+                    });
+                    console.log("Instância jsPDF criada.");
+
+                    // Calcula dimensões da imagem no PDF mantendo proporção
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const margin = 10; // Margem de 10mm em cada lado
+                    const imgWidth = pdfWidth - (margin * 2);
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+                    let heightLeft = imgHeight;
+                    let position = margin; // Posição inicial Y da imagem (com margem superior)
+
+                    console.log("Adicionando imagem ao PDF (página 1)...");
+                    // Adiciona a imagem inteira na primeira página
+                    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                    heightLeft -= (pdfHeight - (margin * 2)); // Subtrai a altura visível na primeira página
+
+                    // Se a imagem for maior que a página, adiciona novas páginas
+                    while (heightLeft > 0) {
+                        console.log("Conteúdo excede a página. Adicionando nova página...");
+                        position = margin - heightLeft; // Define a posição Y negativa para continuar a imagem
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                        heightLeft -= (pdfHeight - (margin * 2)); // Subtrai altura da nova página
+                    }
+                    console.log("Geração das páginas do PDF concluída.");
+
+                    // Define nome do arquivo
+                    const selectedMonthYear = monthSelectEl.value || 'relatorio'; // Usa 'relatorio' se nenhum mês selecionado
+                    const fileName = `relatorio_financeiro_${selectedMonthYear.replace('-', '_')}.pdf`;
+                    console.log(`Tentando salvar PDF como: ${fileName}`);
+
+                    // Inicia o download do PDF
+                    pdf.save(fileName);
+                    console.log("pdf.save() chamado. Download deve iniciar.");
+
+                } catch (pdfError) {
+                    console.error("Erro durante a criação ou salvamento do PDF com jsPDF:", pdfError);
+                    alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
+                } finally {
+                    // Garante que o botão de download seja reexibido, mesmo se ocorrer erro
+                    console.log("Bloco finally: Restaurando botão de download.");
+                    downloadPdfBtnEl.style.display = originalButtonStyle;
+                }
+
+            }).catch(err => {
+                // Erro ao usar html2canvas
+                console.error("Erro ao capturar o elemento com html2canvas:", err);
+                alert("Ocorreu um erro ao capturar o conteúdo da página para o PDF. Verifique o console.");
+                // Restaura o botão em caso de erro no canvas também
+                downloadPdfBtnEl.style.display = originalButtonStyle;
+            });
+        }
+
+
+        // --- Função de Inicialização ---
+        function init() {
+            transactionListEl.innerHTML = ''; // Limpa a tabela principal
+
+            // Garante status padrão para transações antigas sem status
+            transactions.forEach(t => { if (!t.status) { t.status = 'paid'; } });
+
+            updateSalaryDisplay(); // Exibe salário salvo
+            sortTransactions(); // Ordena transações antes de exibir
+            transactions.forEach(transaction => addTransactionDOM(transaction, false)); // Preenche tabela principal
+            updateSummary(); // Calcula e exibe resumos
+            populateMonthSelector(); // Preenche o seletor de meses
+
+            // Garante que o relatório mensal e botão PDF estejam ocultos ao iniciar/recarregar
+            monthlyReportContainerEl.style.display = 'none';
+            downloadPdfBtnEl.style.display = 'none';
+
+            // Verifica se um mês estava selecionado antes e tenta reexibir o relatório
+             displayMonthlyReportIfVisible();
+        }
+
+        // --- Event Listeners ---
+        form.addEventListener('submit', addTransaction);
+        saveSalaryBtnEl.addEventListener('click', saveSalary);
+
+        // Ajusta automaticamente o sinal do valor ao mudar tipo ou valor
+        amountInput.addEventListener('change', () => {
+            const amount = parseFloat(amountInput.value);
+            if (isNaN(amount)) return; // Ignora se não for número
+
+            if (typeInput.value === 'receita' && amount < 0) {
+                amountInput.value = Math.abs(amount); // Receita deve ser positiva
+            } else if (typeInput.value === 'despesa' && amount > 0) {
+                amountInput.value = -amount; // Despesa deve ser negativa
+            }
+        });
+        // Atualiza placeholder e força re-verificação do valor ao mudar o tipo
+        typeInput.addEventListener('change', () => {
+            amountInput.dispatchEvent(new Event('change')); // Dispara evento change no valor
+            amountInput.placeholder = typeInput.value === 'receita' ? 'Ex: 1500' : 'Ex: -50.99';
+        });
+
+        // Listener para o seletor de mês -> exibe o relatório correspondente
+        monthSelectEl.addEventListener('change', displayMonthlyReport);
+
+        // Listener para o botão de download PDF
+        downloadPdfBtnEl.addEventListener('click', downloadPDF);
+
+
+        // --- Inicializa a aplicação ---
+        init();
+    </script>
 
 </body>
 </html>
