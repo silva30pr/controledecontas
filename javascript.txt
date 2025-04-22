@@ -1,0 +1,641 @@
+// --- Seletores DOM ---
+const balanceEl = document.getElementById('balance');
+const totalIncomeEl = document.getElementById('total-income');
+const totalExpenseEl = document.getElementById('total-expense');
+const transactionListEl = document.getElementById('transaction-list');
+const form = document.getElementById('transaction-form');
+const descriptionInput = document.getElementById('description');
+const amountInput = document.getElementById('amount');
+const typeInput = document.getElementById('type');
+const dateInput = document.getElementById('date');
+const categoryInput = document.getElementById('category');
+const monthlySalaryInputEl = document.getElementById('monthly-salary-input');
+const saveSalaryBtnEl = document.getElementById('save-salary-btn');
+const currentSalaryEl = document.getElementById('current-salary');
+const remainingBalanceEl = document.getElementById('remaining-balance');
+
+// Novos seletores para relatório
+const monthSelectEl = document.getElementById('month-select');
+const monthlyReportContainerEl = document.getElementById('monthly-report-container');
+const reportMonthYearEl = document.getElementById('report-month-year');
+const reportIncomeEl = document.querySelector('#report-income span');
+const reportExpensePaidEl = document.querySelector('#report-expense-paid span');
+const reportExpensePendingEl = document.querySelector('#report-expense-pending span');
+const reportBalanceEl = document.querySelector('#report-balance span');
+const monthlyReportListEl = document.getElementById('monthly-report-list');
+const downloadPdfBtnEl = document.getElementById('download-pdf-btn');
+
+// --- Carregar Dados ---
+let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+let monthlySalary = parseFloat(localStorage.getItem('monthlySalary')) || 0;
+
+// --- Funções Utilitárias ---
+function formatCurrency(value) {
+    if (typeof value !== 'number' || isNaN(value)) {
+        value = 0;
+    }
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function generateID() {
+    return '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Função para formatar data YYYY-MM-DD para DD/MM/YYYY
+function formatDate(dateString) {
+    if (!dateString) return '-';
+     try {
+        // Cria a data como UTC para evitar problemas de fuso horário na formatação
+        const dateObj = new Date(dateString + 'T00:00:00Z');
+        if (!isNaN(dateObj.getTime())) {
+            return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        }
+    } catch (e) {
+        console.error("Erro ao formatar data:", dateString, e);
+    }
+    return '-'; // Retorna '-' se a data for inválida
+}
+
+// --- Funções de Atualização de UI (Principais) ---
+
+// Adiciona uma transação ao DOM (tabela principal)
+function addTransactionDOM(transaction, animate = false) {
+    // Garante que toda transação tenha um status (default 'paid')
+    if (!transaction.status) {
+        transaction.status = 'paid';
+    }
+
+    const { id, description, amount, type, date, category, status } = transaction;
+    const amountAbs = Math.abs(amount); // Valor absoluto para exibição
+    const itemClass = type === 'receita' ? 'transaction-income' : 'transaction-expense';
+
+    const tr = document.createElement('tr');
+    tr.classList.add(itemClass);
+    // Adiciona classe especial se for despesa pendente
+    if (type === 'despesa' && status === 'pending') {
+        tr.classList.add('row-pending');
+    }
+    tr.setAttribute('data-id', id);
+
+    let formattedDate = formatDate(date);
+    let statusCellContent = '';
+
+    // Lógica para célula de Status (só relevante para despesas)
+    if (type === 'despesa') {
+        const isPaid = status === 'paid';
+        const statusText = isPaid ? 'Pago' : 'Pendente';
+        const statusClass = isPaid ? 'status-paid' : 'status-pending';
+        const toggleButtonClass = isPaid ? 'paid' : 'pending';
+        const toggleButtonIcon = isPaid ? 'fa-toggle-on' : 'fa-toggle-off';
+        const toggleButtonTitle = isPaid ? 'Marcar como Pendente' : 'Marcar como Pago';
+
+        statusCellContent = `
+            <span class="status-indicator ${statusClass}">${statusText}</span>
+            <button class="toggle-status-btn ${toggleButtonClass}" onclick="toggleStatus('${id}')" title="${toggleButtonTitle}">
+                <i class="fas ${toggleButtonIcon}"></i>
+            </button>
+        `;
+    } else {
+        // Receitas são sempre consideradas 'OK' (ou 'Pagas')
+        statusCellContent = `<span class="status-indicator status-paid">OK</span>`;
+    }
+
+    // Conteúdo da linha da tabela
+    tr.innerHTML = `
+        <td>${description}</td>
+        <td>${formatCurrency(amountAbs)}</td>
+        <td>${type === 'receita' ? 'Receita' : 'Despesa'}</td>
+        <td>${formattedDate}</td>
+        <td>${category || '-'}</td>
+        <td>${statusCellContent}</td>
+        <td>
+            <button class="btn-delete" onclick="removeTransaction('${id}')" title="Excluir transação">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </td>
+    `;
+
+    // Animação opcional para novas entradas
+    if (animate) {
+        tr.classList.add('new-item');
+        // Remove a classe de animação após um tempo para permitir reanimação
+        setTimeout(() => tr.classList.remove('new-item'), 500);
+    }
+
+    transactionListEl.prepend(tr); // Adiciona no início da tabela
+}
+
+// Atualiza os cards de resumo (Receita Total, Despesa Paga, Saldo Geral)
+function updateSummary() {
+    // Considera apenas transações pagas para o resumo principal
+    const paidTransactions = transactions.filter(t => t.status === 'paid');
+
+    const income = paidTransactions
+        .filter(t => t.type === 'receita')
+        .reduce((acc, item) => acc + item.amount, 0);
+
+    const expensePaid = paidTransactions
+        .filter(t => t.type === 'despesa') // Valores de despesa já são negativos
+        .reduce((acc, item) => acc + item.amount, 0);
+
+    const total = income + expensePaid; // Soma receita (+) com despesa paga (-)
+
+    balanceEl.innerText = formatCurrency(total);
+    totalIncomeEl.innerText = formatCurrency(income);
+    totalExpenseEl.innerText = formatCurrency(Math.abs(expensePaid)); // Exibe despesa como positiva
+
+    // Adiciona classes para estilização do saldo (positivo/negativo)
+    balanceEl.classList.toggle('positive', total >= 0);
+    balanceEl.classList.toggle('negative', total < 0);
+
+    updateRemainingBalance(); // Atualiza saldo restante sempre que o resumo muda
+}
+
+// Atualiza a exibição do salário definido
+function updateSalaryDisplay() {
+    if (monthlySalary > 0) {
+        monthlySalaryInputEl.value = monthlySalary; // Preenche o input
+        currentSalaryEl.textContent = formatCurrency(monthlySalary);
+    } else {
+        monthlySalaryInputEl.value = ''; // Limpa input se não houver salário
+        currentSalaryEl.textContent = 'Não definido';
+    }
+}
+
+// Atualiza o cálculo e exibição do "Saldo Restante" (Salário - Despesas Pagas do Mês Atual)
+function updateRemainingBalance() {
+    if (monthlySalary <= 0) {
+        remainingBalanceEl.textContent = 'Defina o salário';
+        remainingBalanceEl.className = 'remaining-balance-display'; // Reseta classes
+        return;
+    }
+
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+
+    // Filtra despesas PAGAS do MÊS e ANO ATUAIS
+    const currentMonthExpensesPaid = transactions.filter(t => {
+        if (t.type === 'despesa' && t.status === 'paid' && t.date) {
+            try {
+                // Usa UTC para consistência
+                const transactionDate = new Date(t.date + 'T00:00:00Z');
+                return transactionDate.getUTCMonth() === currentMonth && transactionDate.getUTCFullYear() === currentYear;
+            } catch(e) {
+                 console.error("Erro ao processar data em updateRemainingBalance:", t.date, e);
+                return false; // Ignora transação com data inválida
+            }
+        }
+        return false;
+    }).reduce((sum, t) => sum + t.amount, 0); // Soma (valores já são negativos)
+
+    const remaining = monthlySalary + currentMonthExpensesPaid; // Soma salário (+) com despesas (-)
+
+    remainingBalanceEl.textContent = formatCurrency(remaining);
+    remainingBalanceEl.className = 'remaining-balance-display'; // Reseta classes
+    remainingBalanceEl.classList.add(remaining >= 0 ? 'positive' : 'negative');
+}
+
+
+// --- Funções de Manipulação de Dados ---
+
+// Adiciona uma nova transação (chamada pelo submit do form)
+function addTransaction(e) {
+    e.preventDefault(); // Impede recarregamento da página
+
+    // Validação básica dos campos
+    if (!descriptionInput.value.trim() || !amountInput.value.trim() || !dateInput.value || !typeInput.value) {
+        alert('Por favor, preencha Descrição, Valor, Tipo e Data.');
+        return;
+    }
+
+    const amountValue = parseFloat(amountInput.value);
+    const typeValue = typeInput.value;
+
+    // Validação do sinal do valor vs tipo
+    if ((typeValue === 'receita' && amountValue <= 0) || (typeValue === 'despesa' && amountValue >= 0)) {
+        alert(`Valor inválido para o tipo "${typeValue === 'receita' ? 'Receita' : 'Despesa'}".\nReceitas devem ser positivas.\nDespesas devem ser negativas.`);
+        amountInput.focus();
+        return;
+    }
+    // Validação da data
+     try {
+        if (isNaN(new Date(dateInput.value + 'T00:00:00Z').getTime())) {
+             throw new Error("Data inválida");
+         }
+    } catch(e){
+         alert('Data inválida. Por favor, selecione uma data válida.');
+         dateInput.focus();
+         return;
+    }
+
+
+    const transaction = {
+        id: generateID(),
+        description: descriptionInput.value.trim(),
+        amount: amountValue,
+        type: typeValue,
+        date: dateInput.value, // Formato YYYY-MM-DD
+        category: categoryInput.value.trim() || '', // Categoria opcional
+        status: 'paid' // Novas transações entram como 'paid' por padrão
+    };
+
+    // Se for despesa, o status inicial é 'paid', mas pode ser alterado depois
+    // Se for receita, status é irrelevante para a lógica atual, mas mantemos 'paid'
+
+    transactions.push(transaction);
+    sortTransactions(); // Reordena array com a nova transação
+    addTransactionDOM(transaction, true); // Adiciona ao DOM com animação
+    updateSummary(); // Atualiza os resumos
+    updateLocalStorage(); // Salva no localStorage
+    populateMonthSelector(); // Atualiza as opções do seletor de mês
+    displayMonthlyReportIfVisible(); // Atualiza relatório se ele estiver visível e for do mês adicionado
+
+    form.reset(); // Limpa o formulário
+    // Reseta placeholder do valor
+    amountInput.placeholder = 'Ex: 1500 (receita), -50.99 (despesa)';
+    descriptionInput.focus(); // Foco no campo descrição para próxima entrada
+}
+
+// Alterna o status de uma DESPESA entre 'paid' e 'pending'
+function toggleStatus(id) {
+    const transactionIndex = transactions.findIndex(t => t.id === id);
+
+    if (transactionIndex > -1 && transactions[transactionIndex].type === 'despesa') {
+        const currentStatus = transactions[transactionIndex].status;
+        transactions[transactionIndex].status = (currentStatus === 'paid' ? 'pending' : 'paid');
+
+        updateLocalStorage();
+        init(); // Recarrega tudo para refletir a mudança (simples, mas pode ser otimizado)
+        populateMonthSelector(); // Garante que o seletor esteja atualizado
+        displayMonthlyReportIfVisible(); // Atualiza o relatório se ele estiver visível
+    } else {
+        console.warn("Tentativa de alterar status de receita ou ID não encontrado:", id);
+    }
+}
+
+// Remove uma transação
+function removeTransaction(id) {
+    const transactionElement = document.querySelector(`tr[data-id="${id}"]`);
+
+    if (transactionElement && confirm('Tem certeza que deseja excluir esta transação?')) {
+        transactionElement.classList.add('removing'); // Adiciona classe para animação de saída
+
+        // Aguarda a animação terminar antes de remover do array e localStorage
+        setTimeout(() => {
+            transactions = transactions.filter(transaction => transaction.id !== id);
+            updateLocalStorage();
+            // transactionElement.remove(); // Removido pelo init() abaixo
+            init(); // Recarrega tudo após remoção (mais simples)
+            populateMonthSelector(); // Atualiza seletor de mês
+            displayMonthlyReportIfVisible(); // Atualiza relatório se visível
+
+        }, 400); // Tempo da animação fadeOut
+    }
+}
+
+// Salva o valor do salário mensal no localStorage
+function saveSalary() {
+    const salaryValue = parseFloat(monthlySalaryInputEl.value);
+
+    if (isNaN(salaryValue) || salaryValue < 0) {
+        alert('Por favor, insira um valor de salário válido (número positivo).');
+        // Restaura valor anterior ou limpa se inválido
+        monthlySalaryInputEl.value = monthlySalary > 0 ? monthlySalary : '';
+        monthlySalaryInputEl.focus();
+        return;
+    }
+
+    monthlySalary = salaryValue;
+    localStorage.setItem('monthlySalary', monthlySalary.toString());
+    updateSalaryDisplay(); // Atualiza exibição do salário
+    updateRemainingBalance(); // Recalcula saldo restante
+    alert('Salário mensal salvo com sucesso!');
+}
+
+// Salva o array de transações no localStorage
+function updateLocalStorage() {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+}
+
+// Ordena as transações por data (mais recentes primeiro)
+function sortTransactions() {
+    transactions.sort((a, b) => {
+        // Trata casos onde a data pode ser nula ou inválida brevemente
+        const dateA = a.date ? new Date(a.date + 'T00:00:00Z') : new Date(0);
+        const dateB = b.date ? new Date(b.date + 'T00:00:00Z') : new Date(0);
+        return dateB - dateA; // Ordena decrescente (mais recente primeiro)
+    });
+}
+
+// --- Funções do Relatório Mensal ---
+
+// Popula o <select> com os meses/anos disponíveis baseados nas transações
+function populateMonthSelector() {
+    const availableMonths = new Set(); // Usar Set para evitar duplicatas
+
+    transactions.forEach(t => {
+        if (t.date) {
+            try {
+                // Extrai 'YYYY-MM' da data
+                 const yearMonth = t.date.substring(0, 7);
+                 // Validação simples do formato
+                 if (yearMonth.match(/^\d{4}-\d{2}$/)) {
+                    availableMonths.add(yearMonth);
+                 }
+            } catch (e) {
+                console.error("Erro ao processar data em populateMonthSelector:", t.date, e);
+            }
+        }
+    });
+
+    // Ordena os meses (mais recente primeiro)
+    const sortedMonths = Array.from(availableMonths).sort().reverse();
+
+    // Guarda a opção selecionada antes de limpar
+    const previousSelection = monthSelectEl.value;
+
+    // Limpa opções existentes (exceto a primeira "-- Escolha...")
+    while (monthSelectEl.options.length > 1) {
+        monthSelectEl.remove(1);
+    }
+
+    // Adiciona as novas opções formatadas
+    const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    sortedMonths.forEach(ym => { // ym = 'YYYY-MM'
+        const option = document.createElement('option');
+        option.value = ym;
+        // Formata para "Mês Ano" (ex: Julho 2024)
+        const [year, month] = ym.split('-');
+        // Usa um dia no meio do mês (15) para evitar problemas de fuso na formatação do mês/ano
+        option.textContent = monthFormatter.format(new Date(Date.UTC(year, month - 1, 15)));
+        monthSelectEl.appendChild(option);
+    });
+
+     // Restaura seleção anterior se ainda existir na lista
+     if (sortedMonths.includes(previousSelection)) {
+         monthSelectEl.value = previousSelection;
+     } else {
+          monthSelectEl.value = ""; // Reseta se o mês selecionado não existe mais
+          monthlyReportContainerEl.style.display = 'none'; // Esconde relatório
+          downloadPdfBtnEl.style.display = 'none'; // Esconde botão PDF
+     }
+}
+
+// Exibe o relatório detalhado para o mês/ano selecionado no <select>
+function displayMonthlyReport() {
+    const selectedMonthYear = monthSelectEl.value; // Formato 'YYYY-MM'
+
+    if (!selectedMonthYear) {
+        monthlyReportContainerEl.style.display = 'none'; // Oculta container
+        downloadPdfBtnEl.style.display = 'none'; // Oculta botão PDF
+        return;
+    }
+
+    const [year, month] = selectedMonthYear.split('-').map(Number); // Converte para números
+    const monthIndex = month - 1; // Mês no JS é 0-indexado (0 = Janeiro, 11 = Dezembro)
+
+    // 1. Filtrar transações do mês/ano selecionado
+    const monthlyTransactions = transactions.filter(t => {
+        if (t.date) {
+            try {
+                const transactionDate = new Date(t.date + 'T00:00:00Z'); // Usar UTC
+                return transactionDate.getUTCFullYear() === year && transactionDate.getUTCMonth() === monthIndex;
+            } catch (e) {
+                console.error("Erro ao filtrar data em displayMonthlyReport:", t.date, e);
+                return false;
+            }
+        }
+        return false;
+    });
+
+     // Ordena transações do mês por data (mais recente primeiro) para a tabela do relatório
+     monthlyTransactions.sort((a, b) => {
+         const dateA = a.date ? new Date(a.date + 'T00:00:00Z') : new Date(0);
+         const dateB = b.date ? new Date(b.date + 'T00:00:00Z') : new Date(0);
+         return dateB - dateA;
+     });
+
+
+    // 2. Calcular totais do mês selecionado
+    let monthIncome = 0;
+    let monthExpensePaid = 0;
+    let monthExpensePending = 0;
+
+    monthlyTransactions.forEach(t => {
+        if (t.type === 'receita') {
+            monthIncome += t.amount;
+        } else if (t.type === 'despesa') {
+            if (t.status === 'paid') {
+                monthExpensePaid += t.amount; // Valor já é negativo
+            } else { // status === 'pending'
+                monthExpensePending += t.amount; // Valor já é negativo
+            }
+        }
+    });
+
+    // Balanço do mês = Receitas - Despesas PAGAS
+    const monthBalance = monthIncome + monthExpensePaid;
+
+    // 3. Atualizar UI do Resumo do Relatório
+    const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    reportMonthYearEl.textContent = monthFormatter.format(new Date(Date.UTC(year, monthIndex, 15)));
+
+    reportIncomeEl.textContent = formatCurrency(monthIncome);
+    reportExpensePaidEl.textContent = formatCurrency(Math.abs(monthExpensePaid));
+    reportExpensePendingEl.textContent = formatCurrency(Math.abs(monthExpensePending));
+    reportBalanceEl.textContent = formatCurrency(monthBalance);
+    // Atualiza classe do balanço (positivo/negativo)
+    reportBalanceEl.className = ''; // Limpa classes anteriores
+    reportBalanceEl.classList.add(monthBalance >= 0 ? 'positive' : 'negative');
+
+    // 4. Preencher a Tabela Detalhada do Relatório
+    monthlyReportListEl.innerHTML = ''; // Limpa tabela anterior
+    if (monthlyTransactions.length === 0) {
+        // Mensagem se não houver transações
+        monthlyReportListEl.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; font-style: italic; color: var(--grey-medium);">Nenhuma transação encontrada para este mês.</td></tr>';
+    } else {
+        monthlyTransactions.forEach(t => {
+            const tr = document.createElement('tr');
+            const statusText = t.type === 'receita' ? 'OK' : (t.status === 'paid' ? 'Pago' : 'Pendente');
+            const statusClass = t.type === 'receita' ? 'status-paid' : (t.status === 'paid' ? 'status-paid' : 'status-pending');
+
+            tr.innerHTML = `
+                <td>${formatDate(t.date)}</td>
+                <td>${t.description}</td>
+                <td>${t.category || '-'}</td>
+                <td>${t.type === 'receita' ? 'Receita' : 'Despesa'}</td>
+                <td><span class="status-indicator ${statusClass}" style="font-size: 0.8em;">${statusText}</span></td>
+                <td style="color: ${t.amount >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                    ${formatCurrency(t.amount)}
+                </td>
+            `;
+            monthlyReportListEl.appendChild(tr);
+        });
+    }
+
+    // 5. Exibir o container do relatório e o botão de download
+    monthlyReportContainerEl.style.display = 'block';
+    downloadPdfBtnEl.style.display = 'block'; // Mostra o botão PDF
+}
+
+// Função auxiliar para atualizar o relatório apenas se ele estiver visível
+function displayMonthlyReportIfVisible() {
+     if (monthlyReportContainerEl.style.display === 'block' && monthSelectEl.value) {
+         displayMonthlyReport();
+     }
+}
+
+
+// --- Função de Geração de PDF ---
+
+// Função para baixar o conteúdo do relatório mensal como PDF
+function downloadPDF() {
+    console.log("Iniciando downloadPDF...");
+
+    // Verifica se as bibliotecas jsPDF e html2canvas estão carregadas globalmente
+    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+        console.error("Erro: Bibliotecas jsPDF ou html2canvas não carregadas.");
+        alert("Erro: Bibliotecas necessárias para gerar PDF não foram carregadas. Tente recarregar a página.");
+        return;
+    }
+    const { jsPDF } = window.jspdf; // Pega a classe jsPDF do objeto global
+    console.log("Bibliotecas verificadas.");
+
+    const reportElement = document.getElementById('monthly-report-container');
+     if (!reportElement) {
+         console.error("Erro: Elemento 'monthly-report-container' não encontrado.");
+         alert("Erro interno: Não foi possível encontrar o container do relatório para gerar o PDF.");
+         return;
+     }
+
+    // Esconde temporariamente o botão de download para não aparecer no PDF
+    const originalButtonStyle = downloadPdfBtnEl.style.display;
+    downloadPdfBtnEl.style.display = 'none';
+    console.log("Botão de download oculto. Iniciando html2canvas...");
+
+    // Usa html2canvas para capturar o elemento como uma imagem (canvas)
+    html2canvas(reportElement, {
+        scale: 2, // Aumenta a escala para melhor resolução no PDF
+        useCORS: true, // Permite carregar imagens de outras origens (se houver)
+        logging: true // Habilita logs do html2canvas no console para debug
+    }).then(canvas => {
+        console.log("html2canvas concluído. Canvas gerado.");
+        try {
+            console.log("Convertendo canvas para dataURL...");
+            const imgData = canvas.toDataURL('image/png'); // Converte canvas para imagem PNG base64
+            console.log("DataURL gerada.");
+
+            console.log("Criando instância jsPDF (A4, portrait, mm)...");
+            const pdf = new jsPDF({
+                orientation: 'portrait', // 'p' ou 'portrait'
+                unit: 'mm',             // 'mm', 'cm', 'in', 'pt', 'px'
+                format: 'a4'            // 'a3', 'a4', 'a5', 'letter', 'legal'
+            });
+            console.log("Instância jsPDF criada.");
+
+            // Calcula dimensões da imagem no PDF mantendo proporção
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10; // Margem de 10mm em cada lado
+            const imgWidth = pdfWidth - (margin * 2);
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+            let heightLeft = imgHeight;
+            let position = margin; // Posição inicial Y da imagem (com margem superior)
+
+            console.log("Adicionando imagem ao PDF (página 1)...");
+            // Adiciona a imagem inteira na primeira página
+            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - (margin * 2)); // Subtrai a altura visível na primeira página
+
+            // Se a imagem for maior que a página, adiciona novas páginas
+            while (heightLeft > 0) {
+                console.log("Conteúdo excede a página. Adicionando nova página...");
+                position = margin - heightLeft; // Define a posição Y negativa para continuar a imagem
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= (pdfHeight - (margin * 2)); // Subtrai altura da nova página
+            }
+            console.log("Geração das páginas do PDF concluída.");
+
+            // Define nome do arquivo
+            const selectedMonthYear = monthSelectEl.value || 'relatorio'; // Usa 'relatorio' se nenhum mês selecionado
+            const fileName = `relatorio_financeiro_${selectedMonthYear.replace('-', '_')}.pdf`;
+            console.log(`Tentando salvar PDF como: ${fileName}`);
+
+            // Inicia o download do PDF
+            pdf.save(fileName);
+            console.log("pdf.save() chamado. Download deve iniciar.");
+
+        } catch (pdfError) {
+            console.error("Erro durante a criação ou salvamento do PDF com jsPDF:", pdfError);
+            alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
+        } finally {
+            // Garante que o botão de download seja reexibido, mesmo se ocorrer erro
+            console.log("Bloco finally: Restaurando botão de download.");
+            downloadPdfBtnEl.style.display = originalButtonStyle;
+        }
+
+    }).catch(err => {
+        // Erro ao usar html2canvas
+        console.error("Erro ao capturar o elemento com html2canvas:", err);
+        alert("Ocorreu um erro ao capturar o conteúdo da página para o PDF. Verifique o console.");
+        // Restaura o botão em caso de erro no canvas também
+        downloadPdfBtnEl.style.display = originalButtonStyle;
+    });
+}
+
+
+// --- Função de Inicialização ---
+function init() {
+    transactionListEl.innerHTML = ''; // Limpa a tabela principal
+
+    // Garante status padrão para transações antigas sem status
+    transactions.forEach(t => { if (!t.status) { t.status = 'paid'; } });
+
+    updateSalaryDisplay(); // Exibe salário salvo
+    sortTransactions(); // Ordena transações antes de exibir
+    transactions.forEach(transaction => addTransactionDOM(transaction, false)); // Preenche tabela principal
+    updateSummary(); // Calcula e exibe resumos
+    populateMonthSelector(); // Preenche o seletor de meses
+
+    // Garante que o relatório mensal e botão PDF estejam ocultos ao iniciar/recarregar
+    monthlyReportContainerEl.style.display = 'none';
+    downloadPdfBtnEl.style.display = 'none';
+
+    // Verifica se um mês estava selecionado antes e tenta reexibir o relatório
+     displayMonthlyReportIfVisible();
+}
+
+// --- Event Listeners ---
+form.addEventListener('submit', addTransaction);
+saveSalaryBtnEl.addEventListener('click', saveSalary);
+
+// Ajusta automaticamente o sinal do valor ao mudar tipo ou valor
+amountInput.addEventListener('change', () => {
+    const amount = parseFloat(amountInput.value);
+    if (isNaN(amount)) return; // Ignora se não for número
+
+    if (typeInput.value === 'receita' && amount < 0) {
+        amountInput.value = Math.abs(amount); // Receita deve ser positiva
+    } else if (typeInput.value === 'despesa' && amount > 0) {
+        amountInput.value = -amount; // Despesa deve ser negativa
+    }
+});
+// Atualiza placeholder e força re-verificação do valor ao mudar o tipo
+typeInput.addEventListener('change', () => {
+    amountInput.dispatchEvent(new Event('change')); // Dispara evento change no valor
+    amountInput.placeholder = typeInput.value === 'receita' ? 'Ex: 1500' : 'Ex: -50.99';
+});
+
+// Listener para o seletor de mês -> exibe o relatório correspondente
+monthSelectEl.addEventListener('change', displayMonthlyReport);
+
+// Listener para o botão de download PDF
+downloadPdfBtnEl.addEventListener('click', downloadPDF);
+
+
+// --- Inicializa a aplicação ---
+init();

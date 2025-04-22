@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro Pro</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Link para o arquivo CSS externo -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- jsPDF e html2canvas (para gerar PDF) - Colocados aqui, mas poderiam ir antes do script.js no body -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+</head>
+<body>
+    <div class="container">
+        <!-- Título Principal -->
+        <h1><i class="fas fa-wallet"></i> <span>Controle Financeiro Pro (By Silva 2025)</span></h1>
+
+        <!-- Resumo Geral -->
+        <div class="summary-container">
+            <div class="summary-box income">
+                <h2><i class="fas fa-arrow-up"></i> Receitas (Total)</h2>
+                <p id="total-income">R$ 0,00</p>
+            </div>
+            <div class="summary-box expense">
+                <h2><i class="fas fa-arrow-down"></i> Despesas Pagas</h2>
+                <p id="total-expense">R$ 0,00</p>
+            </div>
+            <div class="summary-box balance">
+                <h2><i class="fas fa-balance-scale"></i> Saldo Geral</h2>
+                <p id="balance">R$ 0,00</p>
+            </div>
+        </div>
+
+        <!-- Salário e Saldo Restante -->
+        <div class="salary-info-container">
+            <h3><i class="fas fa-money-bill-wave"></i> Planejamento Mensal</h3>
+            <div class="salary-input-group">
+                <label for="monthly-salary-input">Salário/Renda Mensal (Base):</label>
+                <input type="number" id="monthly-salary-input" placeholder="Ex: 3000" step="0.01" min="0">
+                <button id="save-salary-btn" class="btn-save-salary">
+                    <i class="fas fa-save"></i> Salvar
+                </button>
+            </div>
+            <div class="salary-display">
+                Salário Definido: <span id="current-salary">Não definido</span>
+            </div>
+            <div class="remaining-balance-display">
+                Saldo Restante (vs Desp. Pagas): <span id="remaining-balance">R$ 0,00</span>
+            </div>
+        </div>
+
+        <!-- Formulário -->
+        <div class="form-container">
+            <h2><i class="fas fa-plus-circle"></i> Adicionar Nova Transação</h2>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label for="description">Descrição</label>
+                    <input type="text" id="description" placeholder="Ex: Salário, Aluguel, Mercado" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Valor (R$)</label>
+                    <input type="number" id="amount" placeholder="Ex: 1500 (receita), -50.99 (despesa)" step="0.01" required>
+                    <small>Use valor positivo para receitas e negativo para despesas.</small>
+                </div>
+                <div class="form-group">
+                    <label for="type">Tipo</label>
+                    <select id="type" required>
+                        <option value="receita">Receita</option>
+                        <option value="despesa">Despesa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="date">Data</label>
+                    <input type="date" id="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Categoria (Opcional)</label>
+                    <input type="text" id="category" placeholder="Ex: Moradia, Alimentação, Transporte">
+                </div>
+                <button type="submit" class="btn-add">
+                    <i class="fas fa-plus"></i> Adicionar Transação
+                </button>
+            </form>
+        </div>
+
+        <!-- Histórico Geral -->
+        <div class="history-container">
+            <h2><i class="fas fa-history"></i> Histórico de Transações (Completo)</h2>
+            <div class="table-wrapper">
+                <table id="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Tipo</th>
+                            <th>Data</th>
+                            <th>Categoria</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-list">
+                        <!-- Linhas preenchidas pelo JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Seção do Relatório Mensal -->
+        <div class="monthly-report-section">
+            <h2><i class="fas fa-chart-pie"></i> Relatório Mensal</h2>
+            <div class="month-selector-group">
+                <label for="month-select">Selecionar Mês/Ano:</label>
+                <select id="month-select">
+                    <option value="">-- Escolha um Mês --</option>
+                    <!-- Opções serão preenchidas pelo JavaScript -->
+                </select>
+            </div>
+
+            <!-- Container do Relatório (inicialmente oculto) -->
+            <div id="monthly-report-container">
+                <h3>Relatório de <span id="report-month-year"></span></h3>
+
+                <!-- Resumo do Mês -->
+                <div class="report-summary">
+                    <div id="report-income"><p>Receitas</p><span >R$ 0,00</span></div>
+                    <div id="report-expense-paid"><p>Despesas Pagas</p><span>R$ 0,00</span></div>
+                    <div id="report-expense-pending"><p>Despesas Pendentes</p><span>R$ 0,00</span></div>
+                    <div id="report-balance"><p>Balanço do Mês</p><span>R$ 0,00</span></div>
+                </div>
+
+                <!-- Tabela Detalhada do Mês -->
+                <h4>Detalhes das Transações do Mês</h4>
+                 <div class="table-wrapper"> <!-- Reusei table-wrapper para rolagem se necessário -->
+                    <table id="monthly-report-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Tipo</th>
+                                <th>Status</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthly-report-list">
+                            <!-- Linhas preenchidas pelo JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Botão de Download PDF -->
+                <button id="download-pdf-btn">
+                    <i class="fas fa-file-pdf"></i> Baixar Relatório em PDF
+                </button>
+            </div>
+        </div>
+
+    </div><!-- Fim .container -->
+
+    <!-- Link para o arquivo JavaScript externo (IMPORTANTE: no final do body) -->
+    <script src="script.js"></script>
+
+</body>
+</html>
