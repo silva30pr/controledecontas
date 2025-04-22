@@ -519,19 +519,20 @@ function downloadPDF() {
         scale: 2, // Aumenta a escala para melhor resolução no PDF
         useCORS: true, // Permite carregar imagens de outras origens (se houver)
         logging: true // Habilita logs do html2canvas no console para debug
-    }).then(canvas => {
-        console.log("html2canvas concluído. Canvas gerado.");
-        try {
-            console.log("Convertendo canvas para dataURL...");
-            const imgData = canvas.toDataURL('image/png'); // Converte canvas para imagem PNG base64
-            console.log("DataURL gerada.");
 
-            console.log("Criando instância jsPDF (A4, portrait, mm)...");
-            const pdf = new jsPDF({
-                orientation: 'portrait', // 'p' ou 'portrait'
-                unit: 'mm',             // 'mm', 'cm', 'in', 'pt', 'px'
-                format: 'a4'            // 'a3', 'a4', 'a5', 'letter', 'legal'
-            });
+// Dentro da função downloadPDF
+html2canvas(reportElement, { /* opções */ })
+    .then(canvas => {
+        try { /* lógica PDF */ }
+        catch(pdfError) { /* erro PDF */ }
+        finally { downloadPdfBtnEl.style.display = originalButtonStyle; } // Restaura aqui
+    })
+    .catch(err => {
+        console.error("Erro html2canvas:", err);
+        alert("Erro ao capturar conteúdo.");
+        downloadPdfBtnEl.style.display = originalButtonStyle; // Restaura no erro também
+    });
+
             console.log("Instância jsPDF criada.");
 
             // Calcula dimensões da imagem no PDF mantendo proporção
