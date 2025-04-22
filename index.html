@@ -1355,7 +1355,8 @@
             html2canvas(reportElement, {
                 scale: 2, // Aumenta a escala para melhor resolução no PDF
                 useCORS: true, // Permite carregar imagens de outras origens (se houver)
-                logging: true // Habilita logs do html2canvas no console para debug
+                logging: true, // Habilita logs do html2canvas no console para debug
+                foreignObjectRendering: false // <-- CORREÇÃO APLICADA AQUI
             }).then(canvas => {
                 console.log("html2canvas concluído. Canvas gerado.");
                 try {
