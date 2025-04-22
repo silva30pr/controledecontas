@@ -485,53 +485,105 @@ function displayMonthlyReportIfVisible() {
          displayMonthlyReport();
      }
 }
+        // --- Função de Geração de PDF ---
+        function downloadPDF() {
+            console.log("Iniciando downloadPDF...");
 
+            // Verifica bibliotecas
+            if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+                console.error("Erro: Bibliotecas jsPDF ou html2canvas não carregadas.");
+                alert("Erro: Bibliotecas necessárias para gerar PDF não foram carregadas. Tente recarregar a página.");
+                return;
+            }
+            const { jsPDF } = window.jspdf;
+            console.log("Bibliotecas verificadas.");
 
-// --- Função de Geração de PDF ---
+            const reportElement = document.getElementById('monthly-report-container');
+            if (!reportElement) {
+                console.error("Erro: Elemento 'monthly-report-container' não encontrado.");
+                alert("Erro interno: Não foi possível encontrar o container do relatório para gerar o PDF.");
+                return;
+            }
 
-// Função para baixar o conteúdo do relatório mensal como PDF
-function downloadPDF() {
-    console.log("Iniciando downloadPDF...");
+            // Esconde botão ANTES de esperar as fontes
+            const originalButtonStyle = downloadPdfBtnEl.style.display;
+            downloadPdfBtnEl.style.display = 'none';
+            console.log("Botão de download oculto. Aguardando fontes estarem prontas...");
 
-    // Verifica se as bibliotecas jsPDF e html2canvas estão carregadas globalmente
-    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        console.error("Erro: Bibliotecas jsPDF ou html2canvas não carregadas.");
-        alert("Erro: Bibliotecas necessárias para gerar PDF não foram carregadas. Tente recarregar a página.");
-        return;
-    }
-    const { jsPDF } = window.jspdf; // Pega a classe jsPDF do objeto global
-    console.log("Bibliotecas verificadas.");
+            // *** NOVO: Espera as fontes carregarem antes de continuar ***
+            document.fonts.ready.then(() => {
+                console.log("Fontes prontas! Iniciando html2canvas...");
 
-    const reportElement = document.getElementById('monthly-report-container');
-     if (!reportElement) {
-         console.error("Erro: Elemento 'monthly-report-container' não encontrado.");
-         alert("Erro interno: Não foi possível encontrar o container do relatório para gerar o PDF.");
-         return;
-     }
+                html2canvas(reportElement, {
+                    scale: 1, // Mantenha 1 por enquanto para performance
+                    useCORS: true,
+                    logging: true,
+                    foreignObjectRendering: false
+                }).then(canvas => {
+                    console.log("html2canvas concluído. Canvas gerado.");
+                    try {
+                        console.log("Convertendo canvas para dataURL...");
+                        const imgData = canvas.toDataURL('image/png');
+                        console.log("DataURL gerada.");
 
-    // Esconde temporariamente o botão de download para não aparecer no PDF
-    const originalButtonStyle = downloadPdfBtnEl.style.display;
-    downloadPdfBtnEl.style.display = 'none';
-    console.log("Botão de download oculto. Iniciando html2canvas...");
+                        console.log("Criando instância jsPDF (A4, portrait, mm)...");
+                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                        console.log("Instância jsPDF criada.");
 
-    // Usa html2canvas para capturar o elemento como uma imagem (canvas)
-    html2canvas(reportElement, {
-        scale: 1, // Aumenta a escala para melhor resolução no PDF
-        useCORS: true, // Permite carregar imagens de outras origens (se houver)
-        logging: true // Habilita logs do html2canvas no console para debug
+                        // Calcula dimensões (código igual ao anterior)
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+                        const margin = 10;
+                        const imgWidth = pdfWidth - (margin * 2);
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+                        let heightLeft = imgHeight;
+                        let position = margin;
 
-// Dentro da função downloadPDF
-html2canvas(reportElement, { /* opções */ })
-    .then(canvas => {
-        try { /* lógica PDF */ }
-        catch(pdfError) { /* erro PDF */ }
-        finally { downloadPdfBtnEl.style.display = originalButtonStyle; } // Restaura aqui
-    })
-    .catch(err => {
-        console.error("Erro html2canvas:", err);
-        alert("Erro ao capturar conteúdo.");
-        downloadPdfBtnEl.style.display = originalButtonStyle; // Restaura no erro também
-    });
+                        console.log("Adicionando imagem ao PDF (página 1)...");
+                        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                        heightLeft -= (pdfHeight - (margin * 2));
+
+                        while (heightLeft > 0) {
+                            console.log("Conteúdo excede a página. Adicionando nova página...");
+                            position = margin - heightLeft;
+                            pdf.addPage();
+                            pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                            heightLeft -= (pdfHeight - (margin * 2));
+                        }
+                        console.log("Geração das páginas do PDF concluída.");
+
+                        const selectedMonthYear = monthSelectEl.value || 'relatorio';
+                        const fileName = `relatorio_financeiro_${selectedMonthYear.replace('-', '_')}.pdf`;
+                        console.log(`Tentando salvar PDF como: ${fileName}`);
+
+                        pdf.save(fileName);
+                        console.log("pdf.save() chamado. Download deve iniciar.");
+
+                    } catch (pdfError) {
+                        console.error("Erro durante a criação ou salvamento do PDF com jsPDF:", pdfError);
+                        alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
+                    } finally {
+                        // Restaura o botão DENTRO do .then do html2canvas
+                        console.log("Bloco finally (PDF): Restaurando botão de download.");
+                        downloadPdfBtnEl.style.display = originalButtonStyle;
+                    }
+                }).catch(err => {
+                    // Erro do html2canvas
+                    console.error("Erro ao capturar o elemento com html2canvas:", err);
+                    alert("Ocorreu um erro ao capturar o conteúdo da página para o PDF. Verifique o console.");
+                    // Restaura o botão também no erro do html2canvas
+                    downloadPdfBtnEl.style.display = originalButtonStyle;
+                });
+
+            }).catch(fontError => {
+                // Erro ao esperar as fontes (menos comum, mas possível)
+                console.error("Erro ao esperar as fontes carregarem:", fontError);
+                alert("Não foi possível confirmar o carregamento das fontes. Tente novamente.");
+                // Restaura o botão se as fontes falharem
+                downloadPdfBtnEl.style.display = originalButtonStyle;
+            });
+        }
 
             console.log("Instância jsPDF criada.");
 
